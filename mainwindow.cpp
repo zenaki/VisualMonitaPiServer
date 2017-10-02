@@ -6,6 +6,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    this->setWindowTitle("Visual Monita - Monitoring Pi Server");
 
     manager = new QNetworkAccessManager(this);
     connect(manager, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyFinished(QNetworkReply *)));
@@ -73,12 +74,19 @@ void MainWindow::parsing(QByteArray data)
 
     if (id_sequence == 2) {
         piServer.val.value = object.value("Value").toDouble();
-        piServer.val.time = QDateTime::fromString(object.value("Timestamp").toString(), "yyyy-MM-ddTHH:mm:ssZ");
+        QString time = object.value("Timestamp").toString();
+        if (time.length() > 20) {
+            time = time.mid(0, 19) + "Z";
+        }
+        piServer.val.time = QDateTime::fromString(time, "yyyy-MM-ddTHH:mm:ssZ");
 
         id_sequence = 0;
         writeToDB();
         if (path.length() > last_path) {
             last_path++;
+            if (last_path == 5) {
+                qDebug() << "debug";
+            }
             doWork();
             return;
         } else {
@@ -126,7 +134,7 @@ QStringList MainWindow::readJSONFile(QString path) {
 
             QJsonArray array = object.value("path").toArray();
             foreach (const QJsonValue & v, array) {
-                result.append(v.toObject().value("location").toString());
+                result.append(v.toObject().value("location").toString().replace(" ", "%20"));
             }
         }
     }

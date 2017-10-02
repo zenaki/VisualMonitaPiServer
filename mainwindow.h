@@ -17,6 +17,7 @@
 #include <QSqlError>
 
 #include <QDateTime>
+#include <QTimeZone>
 #include <QFile>
 
 #include <QTimer>

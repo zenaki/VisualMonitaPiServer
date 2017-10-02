@@ -229,8 +229,12 @@ void MainWindow::readFromDB() {
         for (int i = 0; i < result.length(); i++) {
             QStringList listData = result.at(i).split(";");
 
+            QDateTime date = QDateTime::fromTime_t(listData.at(1).mid(0,10).toInt());
+            date.setTimeSpec(Qt::UTC);
+            QDateTime local = date.toLocalTime();
+
             model_data->setItem(i, 0, new QStandardItem(listData.at(0)));
-            model_data->setItem(i, 1, new QStandardItem(QDateTime::fromTime_t(listData.at(1).mid(0,10).toInt()).toString("yyyy-MM-dd HH:mm:ss")));
+            model_data->setItem(i, 1, new QStandardItem(local.toString("yyyy-MM-dd HH:mm:ss")));
             model_data->setItem(i, 2, new QStandardItem(listData.at(2)));
         }
     } else {

@@ -81,7 +81,8 @@ void MainWindow::parsing(QByteArray data)
         piServer.val.time = QDateTime::fromString(time, "yyyy-MM-ddTHH:mm:ssZ");
 
         id_sequence = 0;
-        writeToDB();
+        writeToDB_SQLite();
+        writeToDB_SQL();
         if (path.length() > last_path) {
             last_path++;
             if (last_path == 5) {
@@ -91,7 +92,7 @@ void MainWindow::parsing(QByteArray data)
             return;
         } else {
             last_path = 1;
-            readFromDB();
+            readFromDB_SQLite();
         }
     }
 
@@ -103,7 +104,7 @@ void MainWindow::replyFinished(QNetworkReply *reply)
     qDebug() << "Get Reply";
     QByteArray data;
     data = reply->readAll();
-    qDebug() << data;
+//    qDebug() << data;
     id_sequence++;
     this->parsing(data);
 }
@@ -111,7 +112,7 @@ void MainWindow::replyFinished(QNetworkReply *reply)
 void MainWindow::authenticationRequired(QNetworkReply *reply, QAuthenticator *authenticator)
 {
     qDebug() << "Authentication";
-    authenticator->setUser("administrator");
+    authenticator->setUser("Administrator");
     authenticator->setPassword("P@$$w0rd");
 }
 
@@ -141,13 +142,69 @@ QStringList MainWindow::readJSONFile(QString path) {
     return result;
 }
 
-void MainWindow::writeToDB() {
-    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("C:/Users/Administrator/Desktop/MonitaPiService/database.db");
-    if(db.open()) {
-        qDebug() << "DB Connected";
+void MainWindow::writeToDB_SQL() {
+    QSqlDatabase db_sql = QSqlDatabase::addDatabase("QODBC3");
+    db_sql.setDatabaseName("DRIVER={SQL Server};Server=TMSPREMIER\\SQLEXPRESS;Database=Test_DB;Uid=dendy;Port=1433;Pwd=dendy123;WSID=.");
+    if(db_sql.open()) {
+        qDebug() << "DB SQL Connected";
     } else {
-        qDebug() << "DB Not Connected";
+        qDebug() << "DB SQL Not Connected";
+        return;
+    }
+    QSqlQuery query;
+    QString str = "SELECT count(*) FROM list_titik_ukur WHERE "
+            " tag = '" + piServer.tagName + "' and "
+            " web_id = '" + piServer.webID + "'";
+//    qDebug() << str;
+    if (query.exec(str)) {
+        while (query.next()) {
+            if (query.value(0).toInt() == 0) {
+                str = "INSERT INTO list_titik_ukur (id_tag, tag, web_id) values (" +
+                        QString::number(piServer.id) + ", '" +
+                        piServer.tagName + "', '" +
+                        piServer.webID + "')";
+                if (query.exec(str)) {
+                    qDebug() << "(SQL Server) >> Berhasil Insert Data Baru di table list_titik_ukur";
+                } else {
+                    qDebug() << "(SQL Server) >> Gagal Insert Data Baru di table list_titik_ukur";
+                    qDebug() << query.lastError().text();
+                }
+            }
+        }
+    }
+
+    str = "SELECT count(*) FROM data_history WHERE "
+            " id_tag = " + QString::number(piServer.id) + " and "
+            " timestamp = " + QString::number(piServer.val.time.toUTC().toMSecsSinceEpoch());
+//    qDebug() << str;
+    if (query.exec(str)) {
+        while (query.next()) {
+            if (query.value(0).toInt() == 0) {
+                str = "INSERT INTO data_history (id_tag, timestamp, value) values (" +
+                        QString::number(piServer.id) + ", " +
+                        QString::number(piServer.val.time.toUTC().toTime_t()) + ", " +
+                        QString::number(piServer.val.value) + ")";
+//                qDebug() << str;
+                if (query.exec(str)) {
+                    qDebug() << "(SQL Server) >> Berhasil Insert Data Baru di table data_history";
+                } else {
+                    qDebug() << "(SQL Server) >> Gagal Insert Data Baru di table data_history";
+                    qDebug() << query.lastError().text();
+                }
+            }
+        }
+    }
+    db_sql.close();
+}
+
+void MainWindow::writeToDB_SQLite() {
+    QSqlDatabase db_sqlite = QSqlDatabase::addDatabase("QSQLITE");
+    db_sqlite.setDatabaseName("C:/Users/Administrator/Desktop/MonitaPiService/database.db");
+    if(db_sqlite.open()) {
+        qDebug() << "DB SQLite Connected";
+    } else {
+        qDebug() << "DB SQLite Not Connected";
+        return;
     }
     QSqlQuery query;
     QString str = "SELECT count(*) FROM list_titik_ukur WHERE "
@@ -161,9 +218,9 @@ void MainWindow::writeToDB() {
                         piServer.tagName + "', '" +
                         piServer.webID + "')";
                 if (query.exec(str)) {
-                    qDebug() << "Berhasil Insert Data Baru di table list_titik_ukur";
+                    qDebug() << "(SQLite) >> Berhasil Insert Data Baru di table list_titik_ukur";
                 } else {
-                    qDebug() << "Gagal Insert Data Baru di table list_titik_ukur";
+                    qDebug() << "(SQLite) >> Gagal Insert Data Baru di table list_titik_ukur";
                     qDebug() << query.lastError().text();
                 }
             }
@@ -178,27 +235,28 @@ void MainWindow::writeToDB() {
             if (query.value(0).toInt() == 0) {
                 str = "INSERT INTO data_history (id_tu, timestamp, value) values (" +
                         QString::number(piServer.id) + ", " +
-                        QString::number(piServer.val.time.toUTC().toMSecsSinceEpoch()) + ", " +
+                        QString::number(piServer.val.time.toUTC().toTime_t()) + ", " +
                         QString::number(piServer.val.value) + ")";
                 if (query.exec(str)) {
-                    qDebug() << "Berhasil Insert Data Baru di table data_history";
+                    qDebug() << "(SQLite) >> Berhasil Insert Data Baru di table data_history";
                 } else {
-                    qDebug() << "Gagal Insert Data Baru di table data_history";
+                    qDebug() << "(SQLite) >> Gagal Insert Data Baru di table data_history";
                     qDebug() << query.lastError().text();
                 }
             }
         }
     }
-    db.close();
+    db_sqlite.close();
 }
 
-void MainWindow::readFromDB() {
-    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("C:/Users/Administrator/Desktop/MonitaPiService/database.db");
-    if(db.open()) {
-        qDebug() << "DB Connected";
+void MainWindow::readFromDB_SQLite() {
+    QSqlDatabase db_sqlite = QSqlDatabase::addDatabase("QSQLITE");
+    db_sqlite.setDatabaseName("C:/Users/Administrator/Desktop/MonitaPiService/database.db");
+    if(db_sqlite.open()) {
+        qDebug() << "DB SQLite Connected";
     } else {
-        qDebug() << "DB Not Connected";
+        qDebug() << "DB SQLite Not Connected";
+        return;
     }
     QSqlQuery query;
     QString str = "SELECT "
@@ -213,7 +271,7 @@ void MainWindow::readFromDB() {
         "ORDER BY b.timestamp desc";
 //            "b.timestamp = (SELECT max(timestamp) FROM data_history WHERE id_tu = b.id_tu)";
     if (query.exec(str)) {
-        qDebug() << "Berhasil Dapat Data Monitoring";
+        qDebug() << "(SQLite) >> Berhasil Dapat Data Monitoring";
         QStringList result;
         while (query.next()) {
             result.append(query.value(0).toString()+";"+query.value(1).toString()+";"+query.value(2).toString());
@@ -238,7 +296,7 @@ void MainWindow::readFromDB() {
             model_data->setItem(i, 2, new QStandardItem(listData.at(2)));
         }
     } else {
-        qDebug() << "Database Error : " << query.lastError();
+        qDebug() << "(SQLite) >> Database Error : " << query.lastError();
     }
-    db.close();
+    db_sqlite.close();
 }

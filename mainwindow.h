@@ -61,8 +61,9 @@ public:
     int id_sequence;
     int last_path;
 
-    void writeToDB();
-    void readFromDB();
+    void writeToDB_SQL();
+    void writeToDB_SQLite();
+    void readFromDB_SQLite();
 
 private:
     Ui::MainWindow *ui;
